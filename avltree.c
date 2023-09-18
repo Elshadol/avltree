@@ -136,7 +136,7 @@ static void __avl_erase_fixup(struct avl_node *node, struct avl_node *parent,
                 (node == parent->avl_left) ? AVL_RIGHT_HEAVY : AVL_LEFT_HEAVY;
             return;
         } else if (parent->avl_bf == AVL_LEFT_HEAVY) {
-            if (node == parent->avl_left) {
+            if (node == parent->avl_left) { // must check the taller child first
                 parent->avl_bf = AVL_BALANCED;
                 node = parent;
                 parent = parent->avl_parent;

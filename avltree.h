@@ -1,3 +1,8 @@
+/*
+ * a fast, compact and non-recursive avl tree implementation.
+ * with the same API to linux rbtree
+ */
+
 #ifndef	AVLTREE_INCLUDED
 #define	AVLTREE_INCLUDED
 
