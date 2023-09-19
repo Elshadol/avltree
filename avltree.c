@@ -1,4 +1,4 @@
-#include "avlmini.h"
+#include "avltree.h"
 
 static void __avl_rotate_left(struct avl_node *x, struct avl_root *root)
 {
