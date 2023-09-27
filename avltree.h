@@ -22,18 +22,10 @@ struct avl_root {
     struct avl_node *avl_node;
 };
 
-#ifndef offset_of
-#define offset_of(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-#endif
-
-#ifndef container_of
-#define container_of(ptr, type, member) ( \
-		(type*)( ((char*)((type*)ptr)) - offset_of(type, member)) )
-#endif
-
 #define AVL_ROOT (struct avl_root) { NULL, }
-#define	avl_entry(ptr, type, member) container_of(ptr, type, member)
-
+#define	avl_entry(ptr, type, member) \
+	(type*)( ((char*)((type*)ptr)) - ((size_t) &((type *)0)->member) )
+	
 void avl_insert_fixup(struct avl_node *, struct avl_root *);
 void avl_erase(struct avl_node *, struct avl_root *);
 
@@ -49,8 +41,7 @@ static inline void avl_link_node(struct avl_node *node, struct avl_node *parent,
                                  struct avl_node **avl_link)
 {
     node->avl_parent = parent;
-    node->avl_left = NULL;
-    node->avl_right = NULL;
+    node->avl_left = node->avl_right = NULL;
     node->avl_bf = AVL_BALANCED;
     *avl_link = node;
 }
