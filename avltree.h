@@ -1,5 +1,5 @@
-#ifndef	avlTREE_INCLUDED
-#define	avlTREE_INCLUDED
+#ifndef	AVLTREE_INCLUDED
+#define	AVLTREE_INCLUDED
 
 #include <stddef.h>
 
