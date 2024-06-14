@@ -144,11 +144,9 @@ static void __avl_erase_fixup(struct avl_node *x, struct avl_node *x_parent,
                     avl_set_parent(y, z);
                     y = z;
                     z = y->avl_left;
-                } else {
-                    if (bf == AVL_BALANCED) {
-                        avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
-                        avl_set_bf(y, AVL_LEFT_HEAVY);
-                    }
+                } else if (bf == AVL_BALANCED) {
+                    avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
+                    avl_set_bf(y, AVL_LEFT_HEAVY);
                 }
                 y->avl_left = x_parent;
                 x_parent->avl_right = z;
@@ -186,11 +184,9 @@ static void __avl_erase_fixup(struct avl_node *x, struct avl_node *x_parent,
                     avl_set_parent(y, z);
                     y = z;
                     z = y->avl_right;
-                } else {
-                    if (bf == AVL_BALANCED) {
-                        avl_set_bf(x_parent, AVL_LEFT_HEAVY);
-                        avl_set_bf(y, AVL_RIGHT_HEAVY);
-                    }
+                } else if (bf == AVL_BALANCED) {
+                    avl_set_bf(x_parent, AVL_LEFT_HEAVY);
+                    avl_set_bf(y, AVL_RIGHT_HEAVY);
                 }
                 y->avl_right = x_parent;
                 x_parent->avl_left = z;
