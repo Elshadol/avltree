@@ -1,8 +1,30 @@
 #include "avltree.h"
 
-static inline void __avl_change_child(struct avl_node *x, struct avl_node *y,
-                                      struct avl_node *x_parent,
-                                      struct avl_root *root)
+static inline struct avl_node *avl_parent(const struct avl_node *n)
+{
+    return ((struct avl_node *)((n)->__avl_parent_bf & ~3lu));
+}
+
+static inline unsigned long avl_bf(const struct avl_node *n)
+{
+    return ((unsigned long)((n)->__avl_parent_bf & 3lu));
+}
+
+static inline void avl_set_parent(struct avl_node *n, const struct avl_node *p)
+{
+    n->__avl_parent_bf =
+        (n->__avl_parent_bf & 3lu) | (unsigned long)(p);
+}
+
+static inline void avl_set_bf(struct avl_node *n, unsigned long b)
+{
+    n->__avl_parent_bf =
+        (n->__avl_parent_bf & ~3lu) | (unsigned long)(b);
+}
+
+static inline void
+__avl_change_child(struct avl_node *x, struct avl_node *y,
+                  struct avl_node *x_parent, struct avl_root *root)
 {
     if (x_parent) {
         if (x_parent->avl_left == x)
@@ -24,77 +46,67 @@ static inline void __avl_rotate_set_parents(struct avl_node *x,
 
 void avl_insert_fixup(struct avl_node *x, struct avl_root *root)
 {
-    struct avl_node *x_parent, *tmp;
+    struct avl_node *x_parent, *y, *tmp;
+    unsigned long bf;
     while ((x_parent = avl_parent(x))) {
-        switch (avl_bf(x_parent)) {
-        case AVL_RIGHT_HEAVY:
+        bf = avl_bf(x_parent);
+        if (bf == AVL_RIGHT_HEAVY) {
             avl_set_bf(x_parent, AVL_BALANCED);
             if (x == x_parent->avl_right) {
-                if (avl_left_heavy(x)) {
-                    struct avl_node *y = x->avl_left;
-                    avl_set_bf(x, AVL_BALANCED);
-                    switch (avl_bf(y)) {
-                    case AVL_LEFT_HEAVY:
-                        avl_set_bf(x, AVL_RIGHT_HEAVY);
-                        break;
-                    case AVL_BALANCED:
-                        break;
-                    case AVL_RIGHT_HEAVY:
-                        avl_set_bf(x_parent, AVL_LEFT_HEAVY);
-                        break;
-                    }
+                y = x->avl_left;
+                bf = avl_bf(x);
+                avl_set_bf(x, AVL_BALANCED);
+                if (bf == AVL_LEFT_HEAVY) {
+                    bf = avl_bf(y);
                     avl_set_bf(y, AVL_BALANCED);
+                    if (bf == AVL_LEFT_HEAVY)
+                        avl_set_bf(x, AVL_RIGHT_HEAVY);
+                    else if (bf == AVL_RIGHT_HEAVY)
+                        avl_set_bf(x_parent, AVL_LEFT_HEAVY);
                     x->avl_left = tmp = y->avl_right;
                     y->avl_right = x;
                     if (tmp)
                         avl_set_parent(tmp, x);
                     avl_set_parent(x, y);
                     x = y;
-                } else
-                    avl_set_bf(x, AVL_BALANCED);
-                x_parent->avl_right = tmp = x->avl_left;
+                    y = x->avl_left;
+                }
+                x_parent->avl_right = y;
                 x->avl_left = x_parent;
-                if (tmp)
-                    avl_set_parent(tmp, x_parent);
+                if (y)
+                    avl_set_parent(y, x_parent);
                 __avl_rotate_set_parents(x_parent, x, root);
             }
             return;
-
-        case AVL_BALANCED:
+        } else if (bf == AVL_BALANCED) {
             avl_set_bf(x_parent, ((x == x_parent->avl_left) ?
-                                  AVL_LEFT_HEAVY : AVL_RIGHT_HEAVY));
+                                 AVL_LEFT_HEAVY : AVL_RIGHT_HEAVY));
             x = x_parent;
-            break;
-
-        case AVL_LEFT_HEAVY:
+        } else {
             avl_set_bf(x_parent, AVL_BALANCED);
             if (x == x_parent->avl_left) {
-                if (avl_right_heavy(x)) {
-                    struct avl_node *y = x->avl_right;
-                    avl_set_bf(x, AVL_BALANCED);
-                    switch (avl_bf(y)) {
-                    case AVL_LEFT_HEAVY:
-                        avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
-                        break;
-                    case AVL_BALANCED:
-                        break;
-                    case AVL_RIGHT_HEAVY:
-                        avl_set_bf(x, AVL_LEFT_HEAVY);
-                        break;
-                    }
+                y = x->avl_right;
+                bf = avl_bf(x);
+                avl_set_bf(x, AVL_BALANCED);
+                if (bf == AVL_RIGHT_HEAVY) {
+                    bf = avl_bf(y);
                     avl_set_bf(y, AVL_BALANCED);
+                    if (bf == AVL_LEFT_HEAVY)
+                        avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
+                    else if (bf == AVL_RIGHT_HEAVY)
+                        avl_set_bf(x, AVL_LEFT_HEAVY);
                     x->avl_right = tmp = y->avl_left;
                     y->avl_left = x;
                     if (tmp)
                         avl_set_parent(tmp, x);
                     avl_set_parent(x, y);
                     x = y;
-                } else
-                    avl_set_bf(x, AVL_BALANCED);
-                x_parent->avl_left = tmp = x->avl_right;
+                    y = x->avl_right;
+                }
+                x_parent->avl_left = y;
                 x->avl_right = x_parent;
-                if (tmp)
-                    avl_set_parent(tmp, x_parent);
+                if (y)
+                    avl_set_parent(y, x_parent);
                 __avl_rotate_set_parents(x_parent, x, root);
             }
             return;
@@ -106,76 +118,66 @@ static void __avl_erase_fixup(struct avl_node *x, struct avl_node *x_parent,
                               struct avl_root *root)
 {
     struct avl_node *y, *z, *tmp;
+    unsigned long bf, bf1;
     for ( ; x_parent; x_parent = avl_parent(x)) {
-        switch (avl_bf(x_parent)) {
-        case AVL_RIGHT_HEAVY:
+        bf = avl_bf(x_parent);
+        if (bf == AVL_RIGHT_HEAVY) {
             avl_set_bf(x_parent, AVL_BALANCED);
             if (x == x_parent->avl_right)
                 x = x_parent;
             else {
                 y = x_parent->avl_right;
-                if (avl_left_heavy(y)) {
-                    z = y->avl_left;
-                    avl_set_bf(y, AVL_BALANCED);
-                    switch (avl_bf(z)) {
-                    case AVL_RIGHT_HEAVY:
-                        avl_set_bf(x_parent, AVL_LEFT_HEAVY);
-                        break;
-                    case AVL_BALANCED:
-                        break;
-                    case AVL_LEFT_HEAVY:
-                        avl_set_bf(y, AVL_RIGHT_HEAVY);
-                        break;
-                    }
+                z = y->avl_left;
+                bf = avl_bf(y);
+                avl_set_bf(y, AVL_BALANCED);
+                if (bf == AVL_LEFT_HEAVY) {
+                    bf1 = avl_bf(z);
                     avl_set_bf(z, AVL_BALANCED);
+                    if (bf1 == AVL_RIGHT_HEAVY)
+                        avl_set_bf(x_parent, AVL_LEFT_HEAVY);
+                    else if (bf1 == AVL_LEFT_HEAVY)
+                        avl_set_bf(y, AVL_RIGHT_HEAVY);
                     y->avl_left = tmp = z->avl_right;
                     z->avl_right = y;
                     if (tmp)
                         avl_set_parent(tmp, y);
                     avl_set_parent(y, z);
                     y = z;
+                    z = y->avl_left;
                 } else {
-                    if (avl_balanced(y)) {
+                    if (bf == AVL_BALANCED) {
                         avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
                         avl_set_bf(y, AVL_LEFT_HEAVY);
-                    } else
-                        avl_set_bf(y, AVL_BALANCED);
+                    }
                 }
-                x_parent->avl_right = tmp = y->avl_left;
                 y->avl_left = x_parent;
-                if (tmp)
-                    avl_set_parent(tmp, x_parent);
+                x_parent->avl_right = z;
+                if (z)
+                    avl_set_parent(z, x_parent);
                 __avl_rotate_set_parents(x_parent, y, root);
-                x = y;
-                if (avl_left_heavy(x))
+                if (bf == AVL_BALANCED)
                     return;
+                x = y;
             }
-            break;
-
-        case AVL_BALANCED:
+        } else if (bf == AVL_BALANCED) {
             avl_set_bf(x_parent, ((x == x_parent->avl_left) ?
-                                  AVL_RIGHT_HEAVY : AVL_LEFT_HEAVY));
+                                 AVL_RIGHT_HEAVY : AVL_LEFT_HEAVY));
             return;
-
-        case AVL_LEFT_HEAVY:
+        } else {
             avl_set_bf(x_parent, AVL_BALANCED);
             if (x == x_parent->avl_left)
                 x = x_parent;
             else {
                 y = x_parent->avl_left;
-                if (avl_right_heavy(y)) {
-                    z = y->avl_right;
-                    avl_set_bf(y, AVL_BALANCED);
-                    switch (avl_bf(z)) {
-                    case AVL_LEFT_HEAVY:
+                z = y->avl_right;
+                bf = avl_bf(y);
+                avl_set_bf(y, AVL_BALANCED);
+                if (bf == AVL_RIGHT_HEAVY) {
+                    bf1 = avl_bf(z);
+                    if (bf1 == AVL_LEFT_HEAVY)
                         avl_set_bf(x_parent, AVL_RIGHT_HEAVY);
-                        break;
-                    case AVL_BALANCED:
-                        break;
-                    case AVL_RIGHT_HEAVY:
+                    else if (bf1 == AVL_RIGHT_HEAVY)
                         avl_set_bf(y, AVL_LEFT_HEAVY);
-                        break;
-                    }
                     avl_set_bf(z, AVL_BALANCED);
                     y->avl_right = tmp = z->avl_left;
                     z->avl_left = y;
@@ -183,40 +185,36 @@ static void __avl_erase_fixup(struct avl_node *x, struct avl_node *x_parent,
                         avl_set_parent(tmp, y);
                     avl_set_parent(y, z);
                     y = z;
+                    z = y->avl_right;
                 } else {
-                    if (avl_balanced(y)) {
+                    if (bf == AVL_BALANCED) {
                         avl_set_bf(x_parent, AVL_LEFT_HEAVY);
                         avl_set_bf(y, AVL_RIGHT_HEAVY);
-                    } else
-                        avl_set_bf(y, AVL_BALANCED);
+                    }
                 }
-                x_parent->avl_left = tmp = y->avl_right;
                 y->avl_right = x_parent;
-                if (tmp)
-                    avl_set_parent(tmp, x_parent);
+                x_parent->avl_left = z;
+                if (z)
+                    avl_set_parent(z, x_parent);
                 __avl_rotate_set_parents(x_parent, y, root);
-                x = y;
-                if (avl_right_heavy(x))
+                if (bf == AVL_BALANCED)
                     return;
+                x = y;
             }
-            break;
         }
     }
 }
 
 void avl_erase(struct avl_node *node, struct avl_root *root)
 {
-    struct avl_node *child = node->avl_left,
-                         *tmp = node->avl_right,
-                          *parent = NULL;
-    unsigned long tmp1 = node->__avl_parent_bf;
+    struct avl_node *child = node->avl_left, *tmp = node->avl_right;
+    struct avl_node *parent, *parent1 = avl_parent(node);
     if (!child || !tmp) {
         tmp = child = (!tmp ? child : tmp);
-        tmp1 = (tmp1 & ~3);
-        parent = (struct avl_node *)tmp1;
+        parent = parent1;
     } else {
         parent = tmp;
-        while (tmp->avl_left != NULL)
+        while (tmp->avl_left)
             tmp = tmp->avl_left;
         tmp->avl_left = child;
         avl_set_parent(child, tmp);
@@ -227,14 +225,12 @@ void avl_erase(struct avl_node *node, struct avl_root *root)
             parent = avl_parent(tmp);
             parent->avl_left = child;
         }
-        tmp->__avl_parent_bf = tmp1;
-        tmp1 = (tmp1 & ~3);
+        tmp->__avl_parent_bf = node->__avl_parent_bf;
     }
-    __avl_change_child(node, tmp, (struct avl_node *)tmp1, root);
+    __avl_change_child(node, tmp, parent1, root);
     if (child)
         avl_set_parent(child, parent);
-    if (parent)
-        __avl_erase_fixup(child, parent, root);
+    __avl_erase_fixup(child, parent, root);
 }
 
 struct avl_node *avl_first(const struct avl_root *root)
