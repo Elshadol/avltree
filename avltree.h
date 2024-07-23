@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 struct avl_node {
-  unsigned long __avl_parent_bf;
+  unsigned long __avl_parent_balance;
 #define AVL_BALANCED 0lu    // 00
 #define AVL_RIGHT_HEAVY 1lu // 01
 #define AVL_LEFT_HEAVY 2lu  // 10
@@ -31,11 +31,13 @@ struct avl_root {
     ___ptr ? avl_entry(___ptr, type, member) : NULL;                           \
   })
 
-#define AVL_EMPTY_NODE(node) ((node)->__avl_parent_bf == (unsigned long)(node))
-#define AVL_CLEAR_NODE(node) ((node)->__avl_parent_bf = (unsigned long)(node))
+#define AVL_EMPTY_NODE(node)                                                   \
+  ((node)->__avl_parent_balance == (unsigned long)(node))
+#define AVL_CLEAR_NODE(node)                                                   \
+  ((node)->__avl_parent_balance = (unsigned long)(node))
 
-void avl_insert_rebalance(struct avl_node *inserted, struct avl_root *root);
-void avl_erase(struct avl_node *delete, struct avl_root *root);
+void avl_insert_rebalance(struct avl_node *, struct avl_root *);
+void avl_erase(struct avl_node *delete, struct avl_root *);
 
 struct avl_node *avl_next(const struct avl_node *);
 struct avl_node *avl_prev(const struct avl_node *);
@@ -47,7 +49,7 @@ void avl_replace_node(struct avl_node *victim, struct avl_node *newnode,
 
 static inline void avl_link_node(struct avl_node *node, struct avl_node *parent,
                                  struct avl_node **avl_link) {
-  node->__avl_parent_bf = (unsigned long)parent;
+  node->__avl_parent_balance = (unsigned long)parent;
   node->avl_left = NULL;
   node->avl_right = NULL;
   *avl_link = node;
